@@ -53,7 +53,7 @@
 </template>
 
 <script>
-import { validUsername } from '@/utils/validate'
+// import { validUsername } from '@/utils/validate'
 import { Message } from 'element-ui'
 export default {
   name: 'Login',
@@ -114,7 +114,11 @@ export default {
             this.loading = false
           }).catch((data) => {
             this.loading = false
-            Message.error(data.msg)
+            let errMsg = data
+            if (data.msg !== undefined) {
+              errMsg = data.msg
+            }
+            Message.error(errMsg)
           })
         } else {
           console.log('error submit!!')
