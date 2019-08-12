@@ -36,11 +36,12 @@
       </el-table-column>
       <el-table-column prop="price" label="操作" width="350px">
         <template slot-scope="scope">
-          <el-button size="mini" @click="handleEdit(scope.row.id)">详情</el-button>
+          <el-button size="mini" @click="handleDetail(scope.row.id)">详情</el-button>
           <el-button size="mini" @click="handleEdit(scope.row.id)">编辑</el-button>
           <el-button size="mini" type="danger" @click="handleDelete(scope.row.id)">删除</el-button>
           <el-button v-show="!(scope.row.orderNo)" size="mini" @click="handleOrder(scope.row.id)">检测下单</el-button>
-          <el-button v-show="scope.row.orderStatus === 'WAITING_FOR_CHECK'" size="mini" @click="handleOrder(scope.row.id)">同步检测状态</el-button>
+          <!--          <el-button v-show="scope.row.orderStatus === 'WAITING_FOR_CHECK'" size="mini" @click="handleOrderSyn(scope.row.id)">同步检测状态</el-button>-->
+          <el-button v-show="scope.row.orderStatus === 'SUCCESS'" size="mini" @click="getOrderReport(scope.row.id)">查看报告</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -76,35 +77,41 @@
     </el-dialog>
 
     <el-dialog title="车辆检测下单" :visible.sync="orderCarDialogVisible">
-      <el-form label-position="right" label-width="80px" :model="car">
-        <el-form-item label="车型">
-          <el-input v-model="car.model" />
-        </el-form-item>
-        <el-form-item label="VIN">
-          <el-input v-model="car.vin" />
-        </el-form-item>
-        <el-form-item label="价格(万)">
-          <el-input v-model="car.price" />
-        </el-form-item>
-        <el-form-item label="车牌号">
-          <el-input v-model="car.licensePlate" />
-        </el-form-item>
+      <el-form label-position="right" label-width="auto" :model="cbsOrder">
+        <!--        <el-form-item label="车型">-->
+        <!--          <el-input v-model="orderCar.model" />-->
+        <!--        </el-form-item>-->
+        <!--        <el-form-item label="VIN">-->
+        <!--          <el-input v-model="orderCar.vin" />-->
+        <!--        </el-form-item>-->
+        <!--        <el-form-item label="价格(万)">-->
+        <!--          <el-input v-model="orderCar.price" />-->
+        <!--        </el-form-item>-->
+        <!--        <el-form-item label="车牌号">-->
+        <!--          <el-input v-model="orderCar.licensePlate" />-->
+        <!--        </el-form-item>-->
         <el-form-item label="联系人姓名">
-          <el-input v-model="car.licensePlate" />
+          <el-input v-model="cbsOrder.name" />
         </el-form-item>
         <el-form-item label="联系人电话">
-          <el-input v-model="car.licensePlate" />
+          <el-input v-model="cbsOrder.phone" />
         </el-form-item>
         <el-form-item label="联系地址">
-          <el-input v-model="car.licensePlate" />
+          <el-input v-model="cbsOrder.address" />
         </el-form-item>
         <el-form-item label="城市">
-          <el-input v-model="car.licensePlate" />
+          <el-input v-model="cbsOrder.cityId" />
+        </el-form-item>
+        <el-form-item label="产品类型">
+          <el-select v-model="cbsOrder.type" placeholder="请选择产品类型">
+            <el-option label="本地事故保" value="101" />
+            <el-option label="异地事故保" value="102" />
+          </el-select>
         </el-form-item>
       </el-form>
       <span slot="footer" class="dialog-footer">
-        <el-button @click="addCarDialogVisible = false">取 消</el-button>
-        <el-button type="primary" @click="addCar">确 定</el-button>
+        <el-button @click="orderCarDialogVisible = false">取 消</el-button>
+        <el-button type="primary" @click="addCarOrder()">确 定</el-button>
       </span>
     </el-dialog>
   </div>
@@ -112,21 +119,11 @@
 
 <script>
 import { carList, add } from '@/api/car'
+import { order, reportUrl } from '@/api/cbs'
 import { Message } from 'element-ui'
 
 export default {
   filters: {
-    statusFilter(row) {
-      if (row.orderNo) {
-        if (row.reportUrl) {
-          return '已检测'
-        } else {
-          return '待检测'
-        }
-      } else {
-        return ''
-      }
-    },
     priceFilter(price) {
       if (price) {
         return price + '万元'
@@ -143,9 +140,10 @@ export default {
       list: null,
       listLoading: true,
       currentPage: 1,
-      pageSize: 5,
+      pageSize: 10,
       totalElements: 0,
-      car: {}
+      car: {},
+      cbsOrder: {}
     }
   },
   created() {
@@ -175,12 +173,28 @@ export default {
       console.log(this.car)
       add(this.car).then(response => {
         this.addCarDialogVisible = false
+        this.fetchData()
       }).catch(err => {
         Message.error(typeof (err) === 'string' ? err : err.msg)
       })
     },
     handleOrder(id) {
-      return false
+      this.cbsOrder.carId = id
+      this.orderCarDialogVisible = true
+    },
+    addCarOrder() {
+      order(this.cbsOrder).then(resp => {
+        this.orderCarDialogVisible = false
+      }).catch(err => {
+        Message.error(typeof (err) === 'string' ? err : err.msg)
+      })
+    },
+    getOrderReport(carId) {
+      reportUrl(carId).then(resp => {
+        window.open(resp.body, '_blank')
+      }).catch(err => {
+        Message.error(typeof (err) === 'string' ? err : err.msg)
+      })
     }
   }
 }
@@ -188,9 +202,10 @@ export default {
 <style>
   .pagination {
     float: right;
-    padding-right:20px;
-    padding-top:20px;
+    padding-right: 20px;
+    padding-top: 20px;
   }
+
   .el-col {
     border-radius: 4px;
   }
